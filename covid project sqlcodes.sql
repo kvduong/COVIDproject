@@ -23,10 +23,18 @@ order by DeathPercentage desc
 --------------
 
 --infected rate
-select location, population, MAX(cast(total_cases as int)) as HighestCases, MAX((total_cases/new_cases)*100) as PopInfectionRate 
+select location, population, MAX(cast(total_cases as int)) as HighestCases, MAX((total_cases/population)*100) as PopInfected 
 from profolioproject..CovidDeaths
+where date <= '2023-05-05' and continent is not null and location not like '%income%' and location not like '%Union%' and location not like 'World'
 group by location, population
-order by PopInfectionRate desc
+order by PopInfected desc
+
+select location, population, date, MAX(cast(total_cases as int)) as HighestCases, MAX((total_cases/population)*100) as PopInfected 
+from profolioproject..CovidDeaths
+where date <= '2023-05-05' and continent is not null and location not like '%income%' and location not like '%Union%' and location not like 'World'
+group by location, population, date
+order by PopInfected desc, date desc, location
+
 
 --Highest Death count
 select location, MAX(cast(total_deaths as int)) as TotalDeathCount 

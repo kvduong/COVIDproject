@@ -1,136 +1,35 @@
---Countries' death percentages as of "2023-05-05"
-select location, date, population, total_cases, total_deaths,
-round(((total_deaths/population)*100),2) as DeathPercentage from 
-profolioproject..CovidDeaths
-where date = '2023-05-05' 
-order by 6 desc
+/* COVID PROJECT PT2*/
 
-----------------
--- location and continent death percentage as of May 5th 2023 
-select continent, location, population, total_cases, total_deaths,
-round(((total_deaths/population)*100),2) as DeathPercentage from 
-profolioproject..CovidDeaths
-where date = '2023-05-05' and continent is not null
-order by DeathPercentage desc
+--- displaying cases and deaths alongside percentage of total cases
 
--- 7 Continents
-select location, population, total_cases, total_deaths,
-round(((total_deaths/population)*100),2) as DeathPercentage from 
-profolioproject..CovidDeaths
-where date = '2023-05-05' and continent is null and location not like '%income%' and location not like '%Union%'
-order by DeathPercentage desc
-
---------------
-
---infected rate
-select location, population, MAX(cast(total_cases as int)) as HighestCases, MAX((total_cases/population)*100) as PopInfected 
+With tempTable as 
+(select location, total_cases, total_deaths, (select convert(float, total_cases) from profolioproject..CovidDeaths where date = '2023-05-05' and continent is null and location not like '%income%' and location not like '%Union%' and location like 'World') as 'world_total_cases'
 from profolioproject..CovidDeaths
-where date <= '2023-05-05' and continent is not null and location not like '%income%' and location not like '%Union%' and location not like 'World'
-group by location, population
-order by PopInfected desc
+where date = '2023-05-05' and continent is not null and location not like '%income%' and location not like '%Union%')
+Select location as 'Country', total_cases as 'Cases', total_deaths as 'Deaths', format(total_cases/world_total_cases, 'P3') as 'Percentage of World Total Cases' from tempTable
 
-select location, population, date, MAX(cast(total_cases as int)) as HighestCases, MAX((total_cases/population)*100) as PopInfected 
+--- Global statistic of deaths and cases
+
+Select location as Region, total_cases as 'Total Cases', total_deaths as 'Total Deaths', format( (convert(float, total_cases)/(select total_cases from profolioproject..CovidDeaths where date = '2023-05-05' and location like 'World')), 'P3' ) as 'Percentage From World'
 from profolioproject..CovidDeaths
-where date <= '2023-05-05' and continent is not null and location not like '%income%' and location not like '%Union%' and location not like 'World'
-group by location, population, date
-order by PopInfected desc, date desc, location
+where date = '2023-05-05' and continent is null and location not like '%income%' and location not like '%Union%' and location not like 'World'
 
+---timeline of deaths/cases
 
---Highest Death count
-select location, MAX(cast(total_deaths as int)) as TotalDeathCount 
-from profolioproject..CovidDeaths
-where continent is not null and location not like '%income%' and location not like '%Union%'
-group by location
-order by TotalDeathCount desc
-
---Death Count by Continents
-select location as Continents, MAX(cast(total_deaths as int)) as TotalDeathCount 
-from profolioproject..CovidDeaths
-where continent is null and location not like '%income%' and location not like '%Union%'
-group by location
-order by TotalDeathCount desc
-
---World
-select * from profolioproject..CovidDeaths
-where location like 'World'
-
-select date, sum(new_cases) as Cases, sum(new_deaths) as Deaths
-from profolioproject..CovidDeaths
-where continent is not null
-group by date
-order by date
-
--- total pop vs vacs
-
-select Deaths.continent, Deaths.location, Deaths.date, Deaths.population, Vacs.new_vaccinations, Vacs.total_vaccinations
-, SUM(convert(bigint, vacs.new_vaccinations)) OVER (partition by Deaths.location order by Deaths.location, Deaths.date) as total_vaxed 
-from profolioproject..CovidVacs Vacs
-Join profolioproject..CovidDeaths Deaths
-	on Vacs.location = Deaths.location
-	and Vacs.date = Deaths.date
-where Deaths.continent is not null --and Deaths.location like 'China'
-order by 2,3
-
--- The Vaccination data has total_vaccinations added but not in new_vaccinations, total vacs are not equaling the calculated partition.  The new vacs may not be recorded.
-
---with another table
-
-With PopPop (continent, location, date, population, new_vaccination, total_vax) 
-as (
-select Deaths.continent, Deaths.location, Deaths.date, Deaths.population, Vacs.new_vaccinations
-, SUM(convert(int, vacs.new_vaccinations)) OVER (partition by Deaths.location order by Deaths.location, Deaths.date) as total_vaxed 
-from profolioproject..CovidVacs Vacs
-Join profolioproject..CovidDeaths Deaths
-	on Vacs.location = Deaths.location
-	and Vacs.date = Deaths.date
-where Deaths.continent is not null
---order by 2,3
-)
-Select *, (total_vax/Population)*100 --Population data may be incorrect, new vaccination overflow, or possibly re-vax
-from PopPop
---where location like 'China'
+select location, date, total_cases, total_deaths from profolioproject..CovidDeaths
+where location not like '%income%' and location not like '%Union%' and date between '2020-01-03' and '2023-05-05'
 order by location, date
 
+-- new case/deaths by continents
 
---Temp table
-Drop table if exists #PercentPopulationVaxed
-Create table #PercentPopulationVaxed
-(
-Continent nvarchar(255),
-Location nvarchar(255),
-date datetime,
-population numeric,
-new_vaccinations numeric,
-total_vax numeric,
-)
+select location as Continent, date, new_cases, new_deaths from profolioproject..CovidDeaths
+where continent is null and location not like '%income%' and location not like '%Union%' and date between '2020-01-03' and '2023-05-05'
+order by Continent, date
 
-insert into #PercentPopulationVaxed
-select Deaths.continent, Deaths.location, Deaths.date, Deaths.population, Vacs.new_vaccinations
-, SUM(convert(bigint, vacs.new_vaccinations)) OVER (partition by Deaths.location order by Deaths.location, Deaths.date) as total_vaxed 
-from profolioproject..CovidVacs Vacs
-Join profolioproject..CovidDeaths Deaths
-	on Vacs.location = Deaths.location
-	and Vacs.date = Deaths.date
-where Deaths.continent is not null
---order by 2,3
 
-select * , (total_vax/population)*100
-from #PercentPopulationVaxed
+/* One created table that holds world's cases will join rows by date*/
 
--- the percentage of total people vax is actually the amount of vax per person on average. 
-
--- Creating View
-
-Create View PopulationVaccinated as
-select Deaths.continent, Deaths.location, Deaths.date, Deaths.population, Vacs.new_vaccinations
-, SUM(convert(bigint, vacs.new_vaccinations)) OVER (partition by Deaths.location order by Deaths.location, Deaths.date) as total_vaxed 
-from profolioproject..CovidVacs Vacs
-Join profolioproject..CovidDeaths Deaths
-	on Vacs.location = Deaths.location
-	and Vacs.date = Deaths.date
-where Deaths.continent is not null
---order by 2,3
-
-Drop view if exists PopulationVaccinated 
-
-Select * from PopulationVaccinated
+select o.location as Regions, o.date as 'Date', o.new_cases as 'New Cases', o.new_deaths as 'New Deaths', World.new_cases as 'Total World New Cases', format(isnull(o.new_cases / nullif(World.new_cases, 0), 0), 'P3') as 'Percentage of Total New Cases' from profolioproject..CovidDeaths as o
+full join World on o.date = World.date
+where Continent is null and location not like '%income%' and location not like '%Union%' and o.date between '2020-01-03' and '2023-05-05' and location not like 'World'
+order by o.date, o.location

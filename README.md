@@ -1,4 +1,4 @@
 # COVIDproject
 MS SQL Studio querying and displaying on tableau
 
-I queried some data about the death percentages and infection rates and wanted to compare the statistics between countries.
+I queried data from World Health Organization to find perentages of cases around the world to compare countries and continents. 
